@@ -2,6 +2,30 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 // The Recharts library will be loaded dynamically via a script tag.
 const { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } = window.Recharts || {};
 
+// <<< NEW: API Endpoint Configuration >>>
+// This function now automatically determines the correct API server address
+// for production (your public URL), local development, and local network access.
+const getApiBaseUrl = () => {
+    const publicUrl = 'https://havorsv.share.zrok.io';
+    const localNetworkUrl = 'http://192.168.1.118:6969';
+    const localDevUrl = 'http://localhost:6969';
+
+    const currentHostname = window.location.hostname;
+
+    if (currentHostname === 'havorsv.share.zrok.io') {
+        // App is accessed via the public, port-forwarded URL
+        return publicUrl;
+    } else if (currentHostname === 'localhost' || currentHostname === '127.0.0.1') {
+        // App is accessed on the same machine it's running on
+        return localDevUrl;
+    } else {
+        // App is accessed from another device on the same local network
+        return localNetworkUrl;
+    }
+};
+const API_BASE_URL = getApiBaseUrl();
+// <<< END NEW SECTION >>>
+
 
 // Dynamically load an external script
 const useScript = (url) => {
@@ -734,7 +758,7 @@ const LoginPage = ({ setPage, setToken, setUserData }) => {
         setError('');
         setIsLoading(true);
         try {
-            const response = await fetch('http://localhost:6969/api/auth/login', {
+            const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, password }),
@@ -789,7 +813,7 @@ const RegisterPage = ({ setPage }) => {
         setSuccess('');
         setIsLoading(true);
         try {
-            const response = await fetch('http://localhost:6969/api/auth/register', {
+            const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, password }),
@@ -867,7 +891,7 @@ const SimpleStatCard = ({title, value, unit, children}) => (
 const FoodLogItem = ({ log, token, onDeleted }) => {
     const handleDelete = async () => {
         try {
-            const response = await fetch(`http://localhost:6969/api/food-logs/${log.id}`, {
+            const response = await fetch(`${API_BASE_URL}/api/food-logs/${log.id}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -915,7 +939,7 @@ const AddFoodModal = ({ isOpen, onClose, token, onFoodLogged }) => {
         }
         setIsLoading(true);
         try {
-            const response = await fetch(`http://localhost:6969/api/foods?q=${query}`, {
+            const response = await fetch(`${API_BASE_URL}/api/foods?q=${query}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (!response.ok) throw new Error('Failed to search foods.');
@@ -943,7 +967,7 @@ const AddFoodModal = ({ isOpen, onClose, token, onFoodLogged }) => {
         setIsLoading(true);
         setError('');
         try {
-             const response = await fetch(`http://localhost:6969/api/food-logs`, {
+             const response = await fetch(`${API_BASE_URL}/api/food-logs`, {
                 method: 'POST',
                 headers: { 
                     'Authorization': `Bearer ${token}`,
@@ -965,7 +989,7 @@ const AddFoodModal = ({ isOpen, onClose, token, onFoodLogged }) => {
         setIsLoading(true);
         setError('');
         try {
-            const response = await fetch(`http://localhost:6969/api/foods/custom`, {
+            const response = await fetch(`${API_BASE_URL}/api/foods/custom`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -1130,7 +1154,7 @@ const LogWaterModal = ({ isOpen, onClose, token, onWaterLogged }) => {
         setIsLoading(true);
         setError('');
         try {
-            const response = await fetch('http://localhost:6969/api/water-logs', {
+            const response = await fetch(`${API_BASE_URL}/api/water-logs`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -1202,7 +1226,7 @@ const LogWeightModal = ({ isOpen, onClose, token, onWeightLogged }) => {
         setIsLoading(true);
         setError('');
         try {
-            const response = await fetch('http://localhost:6969/api/weight-logs', {
+            const response = await fetch(`${API_BASE_URL}/api/weight-logs`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -1275,15 +1299,11 @@ const DashboardPage = ({ userData, token, setPage, theme, setTheme, onNavigate, 
     const [isLogWaterModalOpen, setIsLogWaterModalOpen] = useState(false);
     const [isLogWeightModalOpen, setIsLogWeightModalOpen] = useState(false);
     
-    // <<< FIX: Corrected useCallback dependencies to prevent infinite loop >>>
-    // The `isLoading` variable was removed from the dependency array. This was causing
-    // the function to be recreated every time loading started, which triggered the
-    // useEffect hook again, creating an infinite loop of requests.
     const fetchDashboardData = useCallback(async () => {
         setIsLoading(true);
         setError(null);
         try {
-            const response = await fetch('http://localhost:6969/api/dashboard/today', {
+            const response = await fetch(`${API_BASE_URL}/api/dashboard/today`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (!response.ok) throw new Error('Failed to fetch dashboard data.');
@@ -1296,8 +1316,6 @@ const DashboardPage = ({ userData, token, setPage, theme, setTheme, onNavigate, 
         }
     }, [token]);
 
-    // This useEffect now correctly runs only when the component mounts
-    // or when the user's token changes.
     useEffect(() => {
         fetchDashboardData();
     }, [fetchDashboardData]);
@@ -1440,7 +1458,7 @@ const SettingsPage = ({ userData, token, onNavigate, theme, setTheme, onLogout, 
         setError('');
         setSuccess('');
         try {
-            const response = await fetch('http://localhost:6969/api/user/profile', {
+            const response = await fetch(`${API_BASE_URL}/api/user/profile`, {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -1533,15 +1551,11 @@ const HistoryPage = ({ userData, token, onNavigate, theme, setTheme, onLogout })
     const [range, setRange] = useState('7'); // '7', '30', 'all'
     const [isLoading, setIsLoading] = useState(true);
 
-    // <<< FIX: Corrected API call for history data >>>
-    // This useEffect now fetches data from the correct `/api/history` endpoint,
-    // which was defined in your server.js file. It was previously calling
-    // non-existent endpoints.
     useEffect(() => {
         const fetchHistory = async () => {
             setIsLoading(true);
             try {
-                const response = await fetch(`http://localhost:6969/api/history?range=${range}`, {
+                const response = await fetch(`${API_BASE_URL}/api/history?range=${range}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                  if (!response.ok) {
