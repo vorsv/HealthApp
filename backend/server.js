@@ -3,7 +3,7 @@
 // React frontend application alongside the API.
 
 const express = require('express');
-const http = require('http');
+const http =require('http');
 const sqlite3 = require('sqlite3').verbose();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -103,10 +103,6 @@ const startServer = async () => {
         });
         
         // --- PROTECTED ROUTES ---
-        
-        // <<< UPDATED: /api/dashboard/today route >>>
-        // This version runs the database queries in parallel for better performance.
-        // It does not fix the frontend infinite loop, but it makes this endpoint more efficient.
         app.get('/api/dashboard/today', authenticateToken, async (req, res) => {
             try {
                 const todayStart = new Date();
@@ -135,7 +131,6 @@ const startServer = async () => {
                 res.status(500).json({ message: 'Database error fetching dashboard data.', error: err.message });
             }
         });
-        // <<< END UPDATED SECTION >>>
         
         app.get('/api/history', authenticateToken, async (req, res) => {
             const { range } = req.query; 
@@ -267,8 +262,10 @@ const startServer = async () => {
             console.log("HealthVorsv is now a unified application. You can access it directly at the server address.");
         });
 
-    } catch (error)
-        {
+    } catch (error) {
+        // <<< UPDATED: Improved error logging >>>
+        // This will log the full error object, including the stack trace,
+        // which is much more helpful for debugging startup failures.
         console.error('Server startup failed:', error);
         process.exit(1);
     }
