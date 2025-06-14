@@ -1,9 +1,9 @@
-// HealthVorsv Backend - v3.0 (Final Production Server)
-// This is the final server version, configured to serve the compiled
-// React frontend application alongside the API.
+// HealthVorsv Backend - v3.1 (Resilient Production Server)
+// This version includes WAL mode and a busy timeout for the database
+// to prevent crashes from concurrent write operations.
 
 const express = require('express');
-const http =require('http');
+const http = require('http');
 const sqlite3 = require('sqlite3').verbose();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -20,12 +20,8 @@ const JWT_SECRET = 'a-super-secret-key-that-should-be-in-an-env-file';
 app.use(cors());
 app.use(express.json());
 
-// <<< NEW: Serve the static files from the React app build folder >>>
-// This tells Express to look in the 'frontend/build' directory for static files like CSS, JS, and images.
 const buildPath = path.join(__dirname, '..', 'frontend', 'build');
 app.use(express.static(buildPath));
-// <<< END NEW SECTION >>>
-
 
 // --- Database Initialization ---
 const initDb = () => {
@@ -35,7 +31,18 @@ const initDb = () => {
                 console.error("Error opening database", err.message);
                 return reject(err);
             }
+            
+            // <<< NEW: Configure database for resilience >>>
+            // Set a timeout to wait for the database if it's busy, instead of crashing.
+            db.configure('busyTimeout', 3000); // 3000ms = 3 seconds
+
             db.serialize(() => {
+                // Enable Write-Ahead Logging (WAL) for better concurrency and performance.
+                db.run('PRAGMA journal_mode = WAL;', (err) => {
+                    if (err) return reject(err);
+                });
+                // <<< END NEW SECTION >>>
+
                 db.run('PRAGMA foreign_keys = ON;', (err) => {
                     if (err) return reject(err);
                 });
@@ -114,7 +121,6 @@ const startServer = async () => {
                 const waterLogSql = `SELECT SUM(amount_ml) as total_water FROM water_logs WHERE userId = ? AND timestamp >= ?`;
                 const weightLogSql = `SELECT weight_kg, timestamp FROM weight_logs WHERE userId = ? ORDER BY timestamp DESC LIMIT 1`;
         
-                // Run queries in parallel using Promise.all
                 const [foodLogs, waterLog, latestWeight] = await Promise.all([
                     new Promise((resolve, reject) => db.all(foodLogSql, [userId, todayISO], (err, rows) => err ? reject(err) : resolve(rows))),
                     new Promise((resolve, reject) => db.get(waterLogSql, [userId, todayISO], (err, row) => err ? reject(err) : resolve(row))),
@@ -247,10 +253,6 @@ const startServer = async () => {
             });
         });
 
-        // <<< NEW: Catch-all route to serve the React app's index.html >>>
-        // This must be after all your API routes. It ensures that if a user
-        // refreshes the page on a route like '/settings', the server sends
-        // the main HTML file, and React Router handles the rest.
         app.get('*', (req, res) => {
             res.sendFile(path.join(buildPath, 'index.html'));
         });
@@ -263,9 +265,6 @@ const startServer = async () => {
         });
 
     } catch (error) {
-        // <<< UPDATED: Improved error logging >>>
-        // This will log the full error object, including the stack trace,
-        // which is much more helpful for debugging startup failures.
         console.error('Server startup failed:', error);
         process.exit(1);
     }
